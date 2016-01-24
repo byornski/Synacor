@@ -3,9 +3,6 @@ import struct
 import sys
     
 class prog:
-
-    #All calculations are to be modulo this number
-    __mod = 32768
     
     def __init__(self,filename):
         '''Read filename as a program into memory'''
@@ -15,91 +12,23 @@ class prog:
         self.max_pos = len(self.data) - 1
 
         self.position = 0
-        
         self.registers = [0]*8
         self.stack = []
 
+        self.ops = operations(self)
+        
         
     def run(self):
         '''Run the program in memory'''
         #Iterate over operations in program order
         for op in self:
-            self.performOp(op)
-
-    def performOp(self,op):
-        if op==0: # END
-            return
-        elif op==1: #set
-            reg,val = self.getNext('RV')
-            self.set(reg,val)
-        elif op==2: #push
-            a = self.getNext('V')
-            self.push(a)
-        elif op==3: #pop
-            a = self.getNext('R')
-            self.set(a,self.pop())
-        elif op==4: #eq - a<= b==c
-            a,b,c = self.getNext('RVV')
-            res = 1 if b==c else 0
-            self.set(a,res)
-        elif op==5: #gt
-            a,b,c = self.getNext('RVV')
-            res = 1 if b>c else 0
-            self.set(a,res)
-        elif op==6: #jmp
-            target = self.getNext('V')
-            self.jmp(target)
-        elif op==7: #JNZ
-            test,target = self.getNext('VV')
-            if (test != 0):
-                self.jmp(target)
-        elif op==8: #JEZ 
-            test,target = self.getNext('VV')
-            if (test == 0):
-                self.jmp(target)
-        elif op==9: #a <= b+c
-            a,b,c = self.getNext('RVV')
-            self.set(a,(b+c)%self.__mod)
-        elif op==10: #mult
-            a,b,c = self.getNext('RVV')
-            self.set(a,(b*c)%self.__mod)
-        elif op==11: #mod
-            a,b,c = self.getNext('RVV')
-            self.set(a,b%c)
-        elif op==12: #Binary and
-            a,b,c = self.getNext('RVV')
-            self.set(a,b&c)
-        elif op==13: #binary or
-            a,b,c = self.getNext('RVV')
-            self.set(a,b|c)
-        elif op==14:
-            a,b = self.getNext('RV')
-            self.set(a,~b%self.__mod)
-        elif op==15: #rmem
-            a,b = self.getNext('RV')
-            self.set(a,self.rmem(b))
-        elif op==16: #wmem
-            a,b = self.getNext('VV')
-            self.wmem(a,b)
-        elif op==17:
-            target = self.getNext('V')
-            self.push(self.Pos())
-            self.jmp(target)
-        elif op==18:
-            target = self.pop()
-            self.jmp(target)
-        elif op==19: # PRINT CHAR
-            s = self.getNext('V')
-            print(chr(s),end="")
-        elif op==20:
-            target = self.getNext('R')
-            st = sys.stdin.read(1)
-            self.set(target,ord(st))
-        elif op==21: #NOOP
-            pass 
-        else:
-            raise Exception("Unknown Op", op, self.position)
-        
+            cont = self.ops.performOp(op)
+            if not cont: break
+    
+    
+    def setReg(self):
+        reg,val = self.getNext('RV')
+        self.set(reg,val)
         
     #Register interaction
     def set(self,reg,val):
@@ -181,7 +110,158 @@ class prog:
     def Pos(self):
         '''Return the current instruction pointer'''
         return self.position
+
+
+
+
+class operations:
+    
+    #All calculations are to be modulo this number
+    __mod = 32768
+
+    def __init__(self,target):
+        self.parent = target
+            
+    def performOp(self,op):
+
+        operation_dictionary = {
+            1: self._set,
+            2: self._push,
+            3: self._pop,
+            4: self._eq,
+            5: self._gt,
+            6: self._jmp,
+            7: self._jnz,
+            8: self._jez,
+            9: self._add,
+            10: self._mult,
+            11: self._mod,
+            12: self._and,
+            13: self._or,
+            14: self._not,
+            15: self._rmem,
+            16: self._wmem,
+            17: self._call,
+            18: self._ret,
+            19: self._out,
+            20: self._in,
+            21: self._noop
+        }        
+
+        #Check for final instruction END
+        if op==0: # END
+            return False
+
+
+        if op in operation_dictionary:
+            operation_dictionary[op]()
+
+        else:
+            raise Exception("Unknown Op", op, self.parent.position)
+        return True
+
+
+    
+    #operations
+    def _set(self): #1
+        reg,val = self.parent.getNext('RV')
+        self.parent.set(reg,val)
+    
+
+    def _push(self): #2
+        a = self.parent.getNext('V')
+        self.parent.push(a)
+
+
+    def _pop(self): #3
+        a = self.parent.getNext('R')
+        self.parent.set(a,self.parent.pop())
+        
+    def _eq(self): #4
+        a,b,c = self.parent.getNext('RVV')
+        res = 1 if b==c else 0
+        self.parent.set(a,res)
+
+    def _gt(self): #5
+        a,b,c = self.parent.getNext('RVV')
+        res = 1 if b>c else 0
+        self.parent.set(a,res)
+        
+    def _jmp(self): #6
+        target = self.parent.getNext('V')
+        self.parent.jmp(target)
+        
+    def _jnz(self): #7
+        test,target = self.parent.getNext('VV')
+        if (test != 0):
+            self.parent.jmp(target)
+
+    def _jez(self): #8
+        test,target = self.parent.getNext('VV')
+        if (test == 0):
+            self.parent.jmp(target)
+            
+    def _add(self): #9
+        a,b,c = self.parent.getNext('RVV')
+        self.parent.set(a,(b+c)%self.__mod)
+
+    def _mult(self): #10
+        a,b,c = self.parent.getNext('RVV')
+        self.parent.set(a,(b*c)%self.__mod)
+
+    def _mod(self): #11
+        a,b,c = self.parent.getNext('RVV')
+        self.parent.set(a,b%c)
+
+    def _and(self): #12
+        a,b,c = self.parent.getNext('RVV')
+        self.parent.set(a,b&c)
+
+    def _or(self): #13
+        a,b,c = self.parent.getNext('RVV')
+        self.parent.set(a,b|c)
+
+    def _not(self): #14
+        a,b = self.parent.getNext('RV')
+        self.parent.set(a,~b%self.__mod)
+
+    def _rmem(self): #15
+        a,b = self.parent.getNext('RV')
+        self.parent.set(a,self.parent.rmem(b))
+
+    def _wmem(self): #16
+        a,b = self.parent.getNext('VV')
+        self.parent.wmem(a,b)
+        
+    def _call(self): #17
+        target = self.parent.getNext('V')
+        self.parent.push(self.parent.Pos())
+        self.parent.jmp(target)
+
+    def _ret(self): #18
+        target = self.parent.pop()
+        self.parent.jmp(target)
+
+    def _out(self): #19
+        s = self.parent.getNext('V')
+        print(chr(s),end="")
+        
+    def _in(self): #20
+        target = self.parent.getNext('R')
+        st = sys.stdin.read(1)
+        self.parent.set(target,ord(st))
+
+    def _noop(self): #21
+        pass
+
     
 #prog('challenge.bin').run()
+
+
+
+
+    
+
+        
 
 
