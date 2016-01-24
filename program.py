@@ -244,15 +244,3 @@ class operations:
 
     def _noop(self): #21
         pass
-
-    
-#prog('challenge.bin').run()
-
-
-
-
-    
-
-        
-
-
