@@ -121,10 +121,7 @@ class operations:
 
     def __init__(self,target):
         self.parent = target
-            
-    def performOp(self,op):
-
-        operation_dictionary = {
+        self.operation_dictionary = {
             1: self._set,
             2: self._push,
             3: self._pop,
@@ -147,31 +144,25 @@ class operations:
             20: self._in,
             21: self._noop
         }        
-
+        
+    def performOp(self,op):
         #Check for final instruction END
         if op==0: # END
             return False
-
-
-        if op in operation_dictionary:
-            operation_dictionary[op]()
-
+        elif op in self.operation_dictionary:
+            self.operation_dictionary[op]()
         else:
             raise Exception("Unknown Op", op, self.parent.position)
         return True
-
-
     
     #operations
     def _set(self): #1
         reg,val = self.parent.getNext('RV')
         self.parent.set(reg,val)
-    
 
     def _push(self): #2
         a = self.parent.getNext('V')
         self.parent.push(a)
-
 
     def _pop(self): #3
         a = self.parent.getNext('R')
