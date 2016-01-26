@@ -16,15 +16,14 @@ class prog:
         self.stack = []
 
         self.ops = operations(self)
+        self.endFlag = False
         
         
     def run(self):
         '''Run the program in memory'''
         #Iterate over operations in program order
         for op in self:
-            cont = self.ops.performOp(op)
-            if not cont: break
-    
+            self.ops.performOp(op)
     
     def setReg(self):
         reg,val = self.getNext('RV')
@@ -59,7 +58,8 @@ class prog:
 
     #Iterator for program data
     def next(self):
-        '''Get the next line from the program at the current position'''
+        '''Get the next line from the program at the current position unless end flag set'''
+        if self.endFlag: raise StopIteration
         stri = self.data[self.position]
         byte = self._unpack(stri)
         self.position += 1
@@ -122,6 +122,7 @@ class operations:
     def __init__(self,target):
         self.parent = target
         self.operation_dictionary = {
+            0: self._end,
             1: self._set,
             2: self._push,
             3: self._pop,
@@ -147,15 +148,15 @@ class operations:
         
     def performOp(self,op):
         #Check for final instruction END
-        if op==0: # END
-            return False
-        elif op in self.operation_dictionary:
+        if op in self.operation_dictionary:
             self.operation_dictionary[op]()
         else:
             raise Exception("Unknown Op", op, self.parent.position)
-        return True
     
     #operations
+    def _end(self):
+        self.parent.endFlag = True
+    
     def _set(self): #1
         reg,val = self.parent.getNext('RV')
         self.parent.set(reg,val)
